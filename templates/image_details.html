@@ -1,0 +1,58 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<h1 id="mainTitle">Image Details</h1>
+
+<div id="feedback" class="feedback-message"></div>
+<div id="image-details">
+    {% for image in image_details_list %}
+    <div class="image-container">
+        <div class="image-title">Image {{ loop.index }}</div>
+        <h3>Original Image</h3>
+        <a href="{{ url_for('download_temp_file', filename=image.original_image_path) }}" download>
+            <img src="{{ url_for('send_temp_file', filename=image.original_image_path) }}" alt="Original Image" width="400">
+        </a>
+        <h3>Resized Image</h3>
+        <a href="{{ url_for('download_temp_file', filename=image.resized_image_path) }}" download>
+            <img class="dark-image" src="{{ url_for('send_temp_file', filename=image.resized_image_path) }}" alt="Resized Image" width="400">
+        </a>
+        <h3>Top Colors</h3>
+        <div id="colors">
+            {% for color in image.colors %}
+                <div class="color-box" style="background-color: {{ color }};" data-color="{{ color }}"></div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+<div class="LinkContainer">
+    <a id="backLink" href="/processed_images">See All Images</a>
+    <a id="backLink" href="/">Back to Wizard</a>
+</div>
+
+<script type="text/javascript">
+document.addEventListener('DOMContentLoaded', () => {
+    const colorBoxes = document.querySelectorAll('.color-box');
+    const feedback = document.getElementById('feedback');
+
+    colorBoxes.forEach(box => {
+        box.addEventListener('click', () => {
+            const color = box.getAttribute('data-color');
+            navigator.clipboard.writeText(color).then(() => {
+                showFeedback(`Cor ${color} copiada para o clipboard!`);
+            }).catch(err => {
+                console.error('Erro ao copiar para o clipboard: ', err);
+            });
+        });
+    });
+
+    function showFeedback(message) {
+        feedback.textContent = message;
+        feedback.style.display = 'block';
+        setTimeout(() => {
+            feedback.style.display = 'none';
+        }, 3000); // Oculta a mensagem após 3 segundos
+    }
+});
+</script>
+{% endblock content %}

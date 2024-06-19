@@ -1,0 +1,38 @@
+version: '3'
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_APP=app.py
+      - FLASK_DEBUG=true
+      - PYTHONUNBUFFERED=1
+    command: flask run --host=0.0.0.0
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+      - worker
+      
+  redis:
+    image: "redis:alpine"
+    volumes:
+      - redis_data:/data
+
+  worker:
+    build: .
+    command: 
+      - bash
+      - -c
+      - |
+        python init_db.py && rq worker --with-scheduler
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+    environment:
+      - REDIS_URL=redis://redis:6379
+
+volumes:
+  redis_data:

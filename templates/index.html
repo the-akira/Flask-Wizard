@@ -1,0 +1,156 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<h1 id="mainTitle">Image Processing Wizard</h1>
+
+<img id="avatar" src="{{ url_for('static', filename='images/avatar.jpeg') }}">
+
+<div id="feedback" class="feedback-message"></div>
+<form id="uploadForm" action="/upload" method="post" enctype="multipart/form-data">
+    <input type="file" id="files" name="files" accept="image/*" multiple required>
+    <div id="fileList" class="file-list"></div>
+    <select name="multiplier" id="multiplier">
+        <option value="2">2x</option>
+        <option value="3">3x</option>
+        <option value="4">4x</option>
+    </select>
+    <button id="uploadButton" type="submit">Upload</button>
+    <div id="spinner" class="spinner" style="display: none;"></div>
+</form>
+
+<div id="status" class="status-container"></div>
+
+<script>
+    let jobIds = [];
+
+    document.getElementById("uploadForm").onsubmit = function(event) {
+        event.preventDefault();
+
+        const formData = new FormData(this);
+        const uploadButton = document.getElementById("uploadButton");
+        const spinner = document.getElementById("spinner");
+        
+        uploadButton.disabled = true;
+        spinner.style.display = "block";
+        localStorage.setItem('spinnerVisible', 'true'); // Save spinner state
+
+        fetch('/upload', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log(data);
+            jobIds = data.job_ids;
+            localStorage.setItem('jobIds', JSON.stringify(jobIds)); // Save job IDs to localStorage
+            document.getElementById("status").innerHTML = ''; // Clear previous status
+            jobIds.forEach(job_id => {
+                const statusItem = document.createElement('div');
+                statusItem.classList.add('status-item');
+                statusItem.id = `status-${job_id}`;
+                statusItem.innerHTML = `<p class="checking"><b>Processing image with job ID:</b> ${job_id} <br><b>Status:</b> Checking...</p>`;
+                document.getElementById("status").appendChild(statusItem);
+                updateStatus(job_id);
+            });
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            uploadButton.disabled = false;
+            spinner.style.display = "none";
+            localStorage.setItem('spinnerVisible', 'false'); // Save spinner state
+        });
+    };
+
+    function updateStatus(jobId) {
+        fetch(`/status/${jobId}`)
+        .then(response => response.json())
+        .then(data => {
+            console.log(data);
+            const statusElement = document.getElementById(`status-${jobId}`);
+            if (data.status === "finished") {
+                statusElement.innerHTML = `<p class="${data.status}"><b>Processing image with job ID:</b> ${jobId} <br><b>Status:</b> ${data.status} - Finished processing</p>`;
+                checkAllJobs();
+            } else if (data.status === "failed") {
+                statusElement.innerHTML = `<p class="${data.status}"><b>Processing image with job ID:</b> ${jobId} <br><b>Status:</b> ${data.status} <br>Error: Image processing failed.</p>`;
+                document.getElementById("uploadButton").disabled = false;
+                document.getElementById("spinner").style.display = "none";
+                localStorage.setItem('spinnerVisible', 'false'); // Save spinner state
+            } else {
+                statusElement.innerHTML = `<p class="${data.status}"><b>Processing image with job ID:</b> ${jobId} <br><b>Status:</b> ${data.status}</p>`;
+                setTimeout(() => updateStatus(jobId), 3000);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+    }
+
+    function checkAllJobs() {
+        const allFinished = jobIds.every(jobId => {
+            const statusElement = document.getElementById(`status-${jobId}`);
+            return statusElement && statusElement.innerText.includes("Finished processing");
+        });
+
+        if (allFinished) {
+            const feedbackElement = document.getElementById('feedback');
+            feedbackElement.textContent = 'Todos os jobs foram processados. Redirecionando...';
+            feedbackElement.style.display = 'block';
+
+            setTimeout(() => {
+                const params = new URLSearchParams();
+                jobIds.forEach(jobId => params.append('job_ids', jobId));
+                localStorage.removeItem('jobIds'); // Clear job IDs from localStorage
+                localStorage.setItem('spinnerVisible', 'false'); // Save spinner state
+                // Redireciona para a página que mostra os detalhes das imagens processadas
+                window.location.href = `/image_details?${params.toString()}`;
+            }, 3200); // Redireciona após 3.2 segundos (tempo para o usuário ver a mensagem)
+        }
+    }
+
+    function loadJobStatuses() {
+        const storedJobIds = JSON.parse(localStorage.getItem('jobIds'));
+        const spinnerVisible = localStorage.getItem('spinnerVisible') === 'true';
+        if (spinnerVisible) {
+            document.getElementById("spinner").style.display = "block";
+            document.getElementById("uploadButton").disabled = true;
+        }
+        if (storedJobIds && storedJobIds.length > 0) {
+            jobIds = storedJobIds;
+            jobIds.forEach(job_id => {
+                const statusItem = document.createElement('div');
+                statusItem.classList.add('status-item');
+                statusItem.id = `status-${job_id}`;
+                statusItem.innerHTML = `<p class="checking">Processing image with job ID: ${job_id} <br>Status: Checking...</p>`;
+                document.getElementById("status").appendChild(statusItem);
+                updateStatus(job_id);
+            });
+        }
+    }
+
+    document.getElementById('files').addEventListener('change', function(event) {
+        var fileList = document.getElementById('fileList');
+        fileList.innerHTML = '';
+        for (var i = 0; i < event.target.files.length; i++) {
+            var file = event.target.files[i];
+            var paragraph = document.createElement('p');
+            paragraph.textContent = file.name;
+            paragraph.classList.add('file-name');
+            fileList.appendChild(paragraph);
+        }
+    });
+
+    const avatar = document.getElementById('avatar');
+    const body = document.body;
+
+    avatar.addEventListener('mouseover', () => {
+        body.style.backgroundColor = '#d9b8fc'; /* Altera a cor de fundo ao passar o mouse sobre a imagem */
+        body.style.transition = 'background-color 3s ease'; /* Transição suave da mudança de cor */
+    });
+
+    avatar.addEventListener('mouseout', () => {
+        body.style.backgroundColor = '#b8cdfc'; /* Volta à cor de fundo inicial quando o mouse sai da imagem */
+    });
+
+    window.onload = loadJobStatuses;
+</script>
+{% endblock content %}

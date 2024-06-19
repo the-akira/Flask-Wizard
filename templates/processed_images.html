@@ -1,0 +1,107 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<h1 id="mainTitle">Processed Images</h1>
+
+<div id="feedback" class="feedback-message"></div>
+<div id="image-details">
+    {% for job in processed_jobs %}
+        <div class="image-container">
+            <h3>Original Image</h3>
+            <a href="{{ url_for('download_temp_file', filename=job.original_image_path) }}" download>
+                <img src="{{ url_for('send_temp_file', filename=job.original_image_path) }}" alt="Original Image" width="400">
+            </a>
+            {% if job.resized_image_path %}
+                <h3>Resized Image</h3>
+                <a href="{{ url_for('download_temp_file', filename=job.resized_image_path) }}" download>
+                    <img class="dark-image" src="{{ url_for('send_temp_file', filename=job.resized_image_path) }}" alt="Resized Image" width="400">
+                </a>
+                <h3>Top Colors</h3>
+                {% for color in job.colors %}
+                    <div class="color-box" style="background-color: {{ color }};" data-color="{{ color }}"></div>
+                {% endfor %}
+            {% endif %}
+        </div>
+    {% endfor %}
+</div>
+
+<div id="pagination">
+    <button id="prev" onclick="prevPage()">Anterior</button>
+    <span id="page-info"></span>
+    <button id="next" onclick="nextPage()">Próxima</button>
+</div>
+
+<script type="text/javascript">
+const itemsPerPage = 3; // Número de itens por página
+let currentPage = 1;
+
+function renderPage(page) {
+    const containers = document.querySelectorAll('#image-details .image-container');
+    const totalPages = Math.ceil(containers.length / itemsPerPage);
+
+    // Esconde todos os containers
+    containers.forEach((container, index) => {
+        container.style.display = 'none';
+    });
+
+    // Mostra apenas os containers da página atual
+    const start = (page - 1) * itemsPerPage;
+    const end = start + itemsPerPage;
+    for (let i = start; i < end && i < containers.length; i++) {
+        containers[i].style.display = 'block';
+    }
+
+    // Atualiza a informação da página
+    document.getElementById('page-info').textContent = `Página ${page} de ${totalPages}`;
+
+    // Desabilita botões se necessário
+    document.getElementById('prev').disabled = page === 1;
+    document.getElementById('next').disabled = page === totalPages;
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function nextPage() {
+    const containers = document.querySelectorAll('#image-details .image-container');
+    const totalPages = Math.ceil(containers.length / itemsPerPage);
+
+    if (currentPage < totalPages) {
+        currentPage++;
+        renderPage(currentPage);
+    }
+}
+
+function prevPage() {
+    if (currentPage > 1) {
+        currentPage--;
+        renderPage(currentPage);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    renderPage(currentPage);
+
+    const colorBoxes = document.querySelectorAll('.color-box');
+    const feedback = document.getElementById('feedback');
+
+    colorBoxes.forEach(box => {
+        box.addEventListener('click', () => {
+            const color = box.getAttribute('data-color');
+            navigator.clipboard.writeText(color).then(() => {
+                showFeedback(`Cor ${color} copiada para o clipboard!`);
+            }).catch(err => {
+                console.error('Erro ao copiar para o clipboard: ', err);
+            });
+        });
+    });
+
+    function showFeedback(message) {
+        feedback.textContent = message;
+        feedback.style.display = 'block';
+        setTimeout(() => {
+            feedback.style.display = 'none';
+        }, 3000); // Oculta a mensagem após 3 segundos
+    }
+});
+</script>
+{% endblock content %}
